@@ -8,6 +8,7 @@ class RNNModel(nn.Module):
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
         if rnn_type in ['LSTM', 'GRU']:
+            # self.rnn = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
             self.rnn = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
         else:
             try:
@@ -15,6 +16,7 @@ class RNNModel(nn.Module):
             except KeyError:
                 raise ValueError( """An invalid option for `--model` was supplied,
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
+            # self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
             self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
         self.decoder = nn.Linear(nhid, ntoken)
 
@@ -42,6 +44,8 @@ class RNNModel(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input, hidden):
+        # hidden = tuple(hh.permute(1, 0, 2).contiguous() for hh in hidden)
+
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
@@ -53,5 +57,7 @@ class RNNModel(nn.Module):
         if self.rnn_type == 'LSTM':
             return (weight.new_zeros(self.nlayers, bsz, self.nhid),
                     weight.new_zeros(self.nlayers, bsz, self.nhid))
+            # return (weight.new_zeros(bsz, self.nlayers, self.nhid),
+            #         weight.new_zeros(bsz, self.nlayers, self.nhid))
         else:
             return weight.new_zeros(self.nlayers, bsz, self.nhid)

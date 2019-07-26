@@ -75,7 +75,9 @@ corpus = data.Corpus(args.data)
 
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
+    # seq_len = min(args.bptt, len(source) - 1 - i)
     nbatch = data.size(0) // bsz
+    # nbatch = data.size(0) // (bsz*args.bptt)
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
@@ -83,6 +85,8 @@ def batchify(data, bsz):
     return data.to(device)
 
 eval_batch_size = 10
+print("--------------- train data size-----------", corpus.train.size(), type(corpus.train))
+print(corpus.train)
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
 test_data = batchify(corpus.test, eval_batch_size)
@@ -92,7 +96,11 @@ test_data = batchify(corpus.test, eval_batch_size)
 ###############################################################################
 
 ntokens = len(corpus.dictionary)
-model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
+# model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
+model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+model = nn.DataParallel(model.cuda(), dim=1)
+model.to(device)
+
 
 criterion = nn.CrossEntropyLoss()
 
@@ -130,7 +138,8 @@ def evaluate(data_source):
     model.eval()
     total_loss = 0.
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(eval_batch_size)
+    # hidden = model.init_hidden(eval_batch_size)
+    hidden = model.module.init_hidden(eval_batch_size)
     with torch.no_grad():
         for i in range(0, data_source.size(0) - 1, args.bptt):
             data, targets = get_batch(data_source, i)
@@ -147,7 +156,8 @@ def train():
     total_loss = 0.
     start_time = time.time()
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(args.batch_size)
+    # hidden = model.init_hidden(args.batch_size)
+    hidden = model.module.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
         data, targets = get_batch(train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
@@ -181,7 +191,8 @@ def export_onnx(path, batch_size, seq_len):
           format(os.path.realpath(args.onnx_export)))
     model.eval()
     dummy_input = torch.LongTensor(seq_len * batch_size).zero_().view(-1, batch_size).to(device)
-    hidden = model.init_hidden(batch_size)
+    # hidden = model.init_hidden(batch_size)
+    hidden = model.module.init_hidden(batch_size)
     torch.onnx.export(model, (dummy_input, hidden), path)
 
 
@@ -217,7 +228,8 @@ with open(args.save, 'rb') as f:
     model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
     # this makes them a continuous chunk, and will speed up forward pass
-    model.rnn.flatten_parameters()
+    # model.rnn.flatten_parameters()
+    model.module.rnn.flatten_parameters()
 
 # Run on test data.
 test_loss = evaluate(test_data)
