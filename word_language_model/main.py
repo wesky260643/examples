@@ -25,7 +25,7 @@ parser.add_argument('--lr', type=float, default=20,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=40,
+parser.add_argument('--epochs', type=int, default=1000,
                     help='upper epoch limit')
 parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
@@ -199,6 +199,8 @@ def export_onnx(path, batch_size, seq_len):
 # Loop over epochs.
 lr = args.lr
 best_val_loss = None
+model_dir = "./model_save/"
+best_model = ""
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
@@ -213,9 +215,12 @@ try:
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
+            model_name = model_dir + args.save + "." + str(epoch)
+            # with open(args.save, 'wb') as f:
+            with open(model_name, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
+            best_model = model_name
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
             lr /= 4.0
@@ -224,7 +229,8 @@ except KeyboardInterrupt:
     print('Exiting from training early')
 
 # Load the best saved model.
-with open(args.save, 'rb') as f:
+# with open(args.save, 'rb') as f:
+with open(best_model, 'rb') as f:
     model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
     # this makes them a continuous chunk, and will speed up forward pass
