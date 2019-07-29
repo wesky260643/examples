@@ -230,7 +230,10 @@ except KeyboardInterrupt:
 
 # Load the best saved model.
 # with open(args.save, 'rb') as f:
-with open(best_model, 'rb') as f:
+final_model = model_dir + "final.pt"
+from shutil import copyfile
+copyfile(best_model, final_model)
+with open(final_model, 'rb') as f:
     model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
     # this makes them a continuous chunk, and will speed up forward pass
